@@ -73,11 +73,15 @@ dh_list_all_images(){
 }
 
 dh_remove_non_running_containers(){
-  docker rm $(dh_list_non_running_containers_by_name)
+  local LIST=$(dh_list_non_running_containers_by_name)
+  [[ -n ${LIST} ]] || return
+  docker rm ${LIST}
 }
 
 dh_kill_running_containers(){
-  docker kill $(dh_list_running_containers_by_name)
+  local LIST=$(dh_list_running_containers_by_name)
+  [[ -n ${LIST} ]] || return
+  docker kill ${LIST}
 }
 
 dh_kill_and_remove_all_containers(){
