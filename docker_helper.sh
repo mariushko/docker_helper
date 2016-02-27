@@ -57,13 +57,15 @@ dh_list_non_running_containers_by_name(){
   done < <(dh_list_all_containers_by_name)
 }
 
-dh_list_running_containers_created_from_image(){
+dh_list_containers_created_from_image(){
   local NAME=${1}
-  local ID
+  local ID LIST
   [[ -n ${NAME} ]] || return
   NAME=$(dh__normalize_and_verify_image_name_ ${NAME})
   ID=$(docker images --format='{{.ID}}' ${NAME})
-  docker inspect --format='{{.Name}}' $(docker ps --quiet --no-trunc --filter ancestor=${ID}) | sed 's#^/##'
+  LIST=$(docker ps --all --quiet --no-trunc --filter ancestor=${ID})
+  [[ -n ${LIST} ]] || return
+  docker inspect --format='{{.Name}}' ${LIST} | sed 's#^/##'
 }
 
 dh_list_all_images(){
@@ -78,7 +80,14 @@ dh_kill_running_containers(){
   docker kill $(dh_list_running_containers_by_name)
 }
 
-df_kill_and_remove_all_containers(){
+dh_kill_and_remove_all_containers(){
   dh_kill_running_containers
   dh_remove_non_running_containers
+}
+
+dh_remove_all_images_from_repo(){
+  local REPO=${1}
+  [[ -n ${REPO} ]] || return
+  docker images --format='{{.Repository}}' | grep -q "^${REPO}$" || return
+  docker rmi -f $(docker images --format='{{.Repository}}:{{.Tag}}' ${REPO})
 }
