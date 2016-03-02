@@ -34,6 +34,7 @@ cat <<EOF
   $0 list_all_containers                       - list all containers
   $0 list_non_running_containers               - list non running containers
   $0 remove_containers [--all|--stopped|--running|NAME(s)] - remove containers
+  $0 remove_images [--all|NAME(s)]             - remove images
 
 EOF
 exit 1
@@ -43,51 +44,103 @@ exit 1
 COMMAND=${1}; (( $# > 0 )) && shift
 
 case "${COMMAND}" in
-  start_containers )	OPTS=`getopt -l stopped -- "$@"`; eval set -- "$OPTS";;
-  stop_containers	 )  OPTS=`getopt -l running -- "$@"`; eval set -- "$OPTS";;
-  kill_containers	 )  OPTS=`getopt -l running -- "$@"`; eval set -- "$OPTS";;
-  list_running_containers ) ;;
-  list_all_containers	    ) ;;
-  list_non_running_containers	) ;;
-  remove_containers ) OPTS=`getopt -l all -l stopped -l running  -- "$@"`; eval set -- "$OPTS";;
+  start_containers )
+    OPTS=`getopt -l stopped -- "$@"`; eval set -- "$OPTS"
+    STOPPED=0
+    if (( $# > 0 )); then
+      while true ; do
+        case "$1" in
+          --stopped     ) STOPPED=1; shift;;
+          --						) shift; break;;
+          *							) help;;
+        esac
+      done
+    fi
+    ((STOPPED)) && { (( $# == 0 )) || help; }
+    ((STOPPED)) && start_containers || start_containers "$@"
+    ;;
+  stop_containers	 )
+    OPTS=`getopt -l running -- "$@"`; eval set -- "$OPTS"
+    RUNNING=0
+    if (( $# > 0 )); then
+      while true ; do
+        case "$1" in
+          --running     ) RUNNING=1; shift;;
+          --						) shift; break;;
+          *							) help;;
+        esac
+      done
+    fi
+    ((RUNNING)) && { (( $# == 0 )) || help; }
+    ((RUNNING)) && stop_containers || stop_containers "$@"
+    ;;
+  kill_containers	 )
+    OPTS=`getopt -l running -- "$@"`; eval set -- "$OPTS"
+    RUNNING=0
+    if (( $# > 0 )); then
+      while true ; do
+        case "$1" in
+          --running     ) RUNNING=1; shift;;
+          --						) shift; break;;
+          *							) help;;
+        esac
+      done
+    fi
+    ((RUNNING)) && { (( $# == 0 )) || help; }
+    ((RUNNING)) && kill_containers || kill_containers "$@"
+    ;;
+  list_running_containers )
+    (( $# > 0 )) && help || list_running_containers_by_name
+    ;;
+  list_all_containers	    )
+    (( $# > 0 )) && help || list_all_containers_by_name
+    ;;
+  list_non_running_containers	)
+    (( $# > 0 )) && help || list_non_running_containers_by_name
+    ;;
+  remove_containers )
+    OPTS=`getopt -l all -l stopped -l running  -- "$@"`; eval set -- "$OPTS"
+    ALL=0
+    STOPPED=0
+    RUNNING=0
+    if (( $# > 0 )); then
+      while true ; do
+        case "$1" in
+          --running     ) RUNNING=1; shift;;
+          --stopped     ) STOPPED=1; shift;;
+          --all         ) ALL=1; shift;;
+          --						) shift; break;;
+          *							) help;;
+        esac
+      done
+    fi
+    (( $(( ALL + STOPPED + RUNNING )) <= 1 )) || help
+    (( $(( ALL + STOPPED + RUNNING )) == 1 )) && { (( $# == 0 )) || help }
+    ((STOPPED)) && remove_non_running_containers
+    ((RUNNING)) && remove_containers $(kill_running_containers
+    ((ALL)) && remove_containers
+    ;;
+  remove_images )
+    OPTS=`getopt -l all -- "$@"`; eval set -- "$OPTS"
+    WITH_ALL_CONTAINERS=0
+    ALL=0
+    if (( $# > 0 )); then
+      while true ; do
+        case "$1" in
+          --all         ) ALL=1; shift;;
+          --						) shift; break;;
+          *							) help;;
+        esac
+      done
+    fi
+    ((ALL)) && remove_images || remove_images "$@"
+    ;;
   *) help;;
 esac
-
-ALL=0
-STOPPED=0
-RUNNING=0
-
-if (( $# > 0 )); then
-  while true ; do
-    case "$1" in
-      --stopped     ) STOPPED=1; shift;;
-      --running     ) RUNNING=1; shift;;
-      --all					) ALL=1; shift;;
-      --						) shift; break;;
-      *							) help;;
-    esac
-  done
-fi
-
-# Tylko jedna z opcji ALL, STOPPED, RUNNING może być ustawiona...
-(( $(( ALL + STOPPED + RUNNING )) <= 1 )) || help
-# Jak jedna z opcji ALL, STOPPED, RUNNING jest ustawiona, to żadnych więcej argumentów już nie trzeba...
-(( $(( ALL + STOPPED + RUNNING )) == 1 )) && { (( $# == 0 )) || help; }
-
-
-case
-  start_containers )	;;
-  stop_containers	 )  ;;
-  kill_containers	 )  ;;
-  list_running_containers )     list_running_containers_by_name;;
-  list_all_containers	    )     list_all_containers_by_name;;
-  list_non_running_containers	) list_non_running_containers_by_name;;
-  remove_containers ) ;;
-  *) help;;
-esac
-
 
 exit 0
+
+###################################### Functions
 
 _normalize_and_verify_image_name_(){
   local NAME=${1}
@@ -98,6 +151,69 @@ _normalize_and_verify_image_name_(){
   [[ ${NAME} == ${REPO} ]] && NAME=${NAME}:latest
   list_all_images | grep -q "^${NAME}$" || return
   echo ${NAME}
+}
+
+start_containers(){
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_non_running_containers_by_name)
+  else
+    LIST="$@"
+  fi
+  [[ -n ${LIST} ]] || return
+  docker start ${LIST}
+}
+
+stop_containres(){
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_running_containers_by_name)
+  else
+    LIST="$@"
+  fi
+  [[ -n ${LIST} ]] || return
+  docker stop ${LIST}
+}
+
+kill_containres(){
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_running_containers_by_name)
+  else
+    LIST="$@"
+  fi
+  [[ -n ${LIST} ]] || return
+  docker kill ${LIST}
+}
+
+remove_containers(){
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_non_running_containers_by_name)
+  else
+    LIST="$@"
+  fi
+  [[ -n ${LIST} ]] || return
+  docker kill ${LIST}
+}
+
+remove_images(){
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_all_images)
+  else
+    LIST="$@"
+  fi
+  for IMAGE in ${LIST}
+  do
+    echo ${IMAGE}
+    for CONTAINER in $(list_containers_created_from_image)
+    do
+      [[ is_running ${CONTAINER} ]] && kill_running_containers ${CONTAINER}
+      remove_non_running_containers ${CONTAINER}
+    done
+    docker rmi ${IMAGE}
+  done
 }
 
 list_all_containers_by_name(){
@@ -146,14 +262,18 @@ remove_non_running_containers(){
 }
 
 kill_running_containers(){
-  local LIST=$(list_running_containers_by_name)
-  [[ -n ${LIST} ]] || return
-  docker kill ${LIST}
-}
-
-kill_and_remove_all_containers(){
-  kill_running_containers
-  remove_non_running_containers
+  local LIST
+  if (( $# == 0 )); then
+    LIST=$(list_running_containers_by_name)
+  else
+    LIST="$@"
+  fi
+  local CONTAINER
+  for CONTAINER in ${LIST}
+  do
+    echo ${CONTAINER}
+    docker kill ${CONTAINER} > /dev/null 2>&1
+  done
 }
 
 remove_all_images_from_repo(){
