@@ -2,20 +2,19 @@
 
 _dhelper_parser_options()
 {
-  local cur;
- 	local commands="
-    start_containers
-    stop_containers
-    kill_containers
-    list_running_containers
-    list_all_containers
-    list_stopped_containers
-    remove_containers
-    remove_images
-  "
-  if [[ ${COMP_CWORD} -eq 1 ]]
+  local cur=${COMP_WORDS[COMP_CWORD]};
+  if (( ${COMP_CWORD} <= 1 ))
   then
-    cur=${COMP_WORDS[COMP_CWORD]};
+    local commands="
+      start_containers
+      stop_containers
+      kill_containers
+      list_running_containers
+      list_all_containers
+      list_stopped_containers
+      remove_containers
+      remove_images
+    "
     COMPREPLY=( $(compgen -W "${commands}" -- $cur ) );
     return 0
   fi
@@ -37,7 +36,7 @@ _dhelper_parser_options()
       local options="--all --all-stopped --all-running $(dhelper list_all_containers)"
       ;;
     remove_images)
-      # Specjalne traktowanie, by poprawnie obsłużyć uzupełnianie nazw zawierających ':' 
+      # Specjalne traktowanie, by poprawnie obsłużyć uzupełnianie nazw zawierających ':'
       local options="--all $(dhelper list_all_images)"
       _get_comp_words_by_ref -n : cur
       COMPREPLY=( $(compgen -W "${options}" -- $cur ) );
