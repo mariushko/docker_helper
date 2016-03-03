@@ -157,7 +157,11 @@ list_containers_created_from_image(){
 }
 
 list_all_images(){
-  docker images --format='{{.Repository}}:{{.Tag}}'
+  docker images --format='{{.Repository}}:{{.Tag}}' | sort
+}
+
+list_all_repositories(){
+  docker images --format='{{.Repository}}' | sort -u
 }
 
 remove_containers(){
@@ -170,32 +174,19 @@ remove_containers(){
   [[ -n ${LIST} ]] || return 0
   for CONTAINER in ${LIST}
   do
-    is_running ${CONTAINER} && kill_running_containers ${CONTAINER}
+    is_running ${CONTAINER} && kill_containers ${CONTAINER}
     docker rm ${CONTAINER}
-  done
-}
-
-
-kill_running_containers(){
-  local LIST
-  if (( $# == 0 )); then
-    LIST=$(list_running_containers)
-  else
-    LIST="$@"
-  fi
-  local CONTAINER
-  for CONTAINER in ${LIST}
-  do
-    echo ${CONTAINER}
-    docker kill ${CONTAINER} > /dev/null 2>&1
   done
 }
 
 remove_all_images_from_repo(){
   local REPO=${1}
   [[ -n ${REPO} ]] || return 0
-  docker images --format='{{.Repository}}' | grep -q "^${REPO}$" || return 0
-  docker rmi -f $(docker images --format='{{.Repository}}:{{.Tag}}' ${REPO})
+  list_all_repositories | grep -q "^${REPO}$" || return 0
+  for IMAGE in $(docker images --format='{{.Repository}}:{{.Tag}}' ${REPO})
+  do
+    remove_images ${IMAGE}
+  done
 }
 
 ########### Przetworzenie opcji
@@ -261,6 +252,15 @@ case "${COMMAND}" in
     ;;
   list_all_images	)
     (( $# > 0 )) && help || list_all_images
+    ;;
+  list_all_repositories)
+    (( $# > 0 )) && help || list_all_repositories
+    ;;
+  remove_all_images_from_repo)
+    (( $# == 1 )) || help
+    REPO=${1}
+    list_all_repositories | grep -q "^${REPO}$" || return 0
+    remove_all_images_from_repo ${REPO}
     ;;
   remove_containers )
     (( $# > 0 )) || help

@@ -12,6 +12,9 @@ _dhelper_parser_options()
       list_running_containers
       list_all_containers
       list_stopped_containers
+      list_all_images
+      list_all_repositories
+      remove_all_images_from_repo
       remove_containers
       remove_images
     "
@@ -32,6 +35,10 @@ _dhelper_parser_options()
     list_all_containers) return ;;
     list_stopped_containers) return ;;
     list_all_images) return ;;
+    list_all_repositories) return ;;
+    remove_all_images_from_repo)
+      local options="$(dhelper list_all_repositories)"
+      ;;
     remove_containers)
       local options="--all --all-stopped --all-running $(dhelper list_all_containers)"
       ;;
