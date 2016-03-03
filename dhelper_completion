@@ -1,0 +1,53 @@
+#!/bin/bash
+
+_dhelper_parser_options()
+{
+  local cur;
+ 	local commands="
+    start_containers
+    stop_containers
+    kill_containers
+    list_running_containers
+    list_all_containers
+    list_stopped_containers
+    remove_containers
+    remove_images
+  "
+  if [[ ${COMP_CWORD} -eq 1 ]]
+  then
+    cur=${COMP_WORDS[COMP_CWORD]};
+    COMPREPLY=( $(compgen -W "${commands}" -- $cur ) );
+    return 0
+  fi
+  case ${COMP_WORDS[1]} in
+    start_containers)
+      local options="--all-stopped $(dhelper list_stopped_containers)"
+      ;;
+    stop_containers)
+      local options="--all-running $(dhelper list_running_containers)"
+      ;;
+    kill_containers)
+      local options="--all-running $(dhelper list_running_containers)"
+      ;;
+    list_running_containers) return ;;
+    list_all_containers) return ;;
+    list_stopped_containers) return ;;
+    list_all_images) return ;;
+    remove_containers)
+      local options="--all --all-stopped --all-running $(dhelper list_all_containers)"
+      ;;
+    remove_images)
+      # Specjalne traktowanie, by poprawnie obsłużyć uzupełnianie nazw zawierających ':' 
+      local options="--all $(dhelper list_all_images)"
+      _get_comp_words_by_ref -n : cur
+      COMPREPLY=( $(compgen -W "${options}" -- $cur ) );
+      __ltrim_colon_completions "${cur}"
+      return 0
+      ;;
+    *) ;;
+  esac
+  COMPREPLY=( $(compgen -W "${options}" -- $cur ) );
+}
+
+complete -F _dhelper_parser_options dhelper
+
