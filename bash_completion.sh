@@ -20,5 +20,5 @@ _parser_options()
     COMPREPLY=( $(compgen -W ${XXX} -- $curr_arg ) );
   fi
 }
-complete -F _parser_options dh
+complete -F _parser_options dhelper
 
