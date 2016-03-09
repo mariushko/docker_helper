@@ -33,7 +33,7 @@ cat <<EOF
   $0 list_running_containers                   - list running containers
   $0 list_all_containers                       - list all containers
   $0 list_stopped_containers               - list non running containers
-  $0 list_all_images                           - list all images
+  $0 list_tagged_images                           - list all images
   $0 remove_containers {--all|--stopped|--running|NAME(s)} - remove containers
   $0 remove_images {--all|NAME(s)}             - remove images
 
@@ -51,7 +51,7 @@ _normalize_and_verify_image_name_(){
   REPO=$(echo ${NAME} | cut -d: -f1)
   TAG=$(echo ${NAME} | cut -d: -f2)
   [[ ${NAME} == ${REPO} ]] && NAME=${NAME}:latest
-  list_all_images | grep -q "^${NAME}$" || return 0
+  list_tagged_images | grep -q "^${NAME}$" || return 0
   echo ${NAME}
 }
 
@@ -106,7 +106,7 @@ is_running(){
 remove_images(){
   local LIST IMAGE CONTAINER
   if (( $# == 0 )); then
-    LIST=$(list_all_images)
+    LIST=$(list_tagged_images)
   else
     LIST="$@"
   fi
@@ -156,7 +156,7 @@ list_containers_created_from_image(){
   docker inspect --format='{{.Name}}' ${LIST} | sed 's#^/##'
 }
 
-list_all_images(){
+list_tagged_images(){
   docker images --format='{{.Repository}}:{{.Tag}}' | sort
 }
 
@@ -250,8 +250,8 @@ case "${COMMAND}" in
   list_stopped_containers	)
     (( $# > 0 )) && help || list_stopped_containers
     ;;
-  list_all_images	)
-    (( $# > 0 )) && help || list_all_images
+  list_tagged_images	)
+    (( $# > 0 )) && help || list_tagged_images
     ;;
   list_all_repositories)
     (( $# > 0 )) && help || list_all_repositories

@@ -12,7 +12,7 @@ _dhelper_parser_options()
       list_running_containers
       list_all_containers
       list_stopped_containers
-      list_all_images
+      list_tagged_images
       list_all_repositories
       remove_all_images_from_repo
       remove_containers
@@ -34,7 +34,7 @@ _dhelper_parser_options()
     list_running_containers) return ;;
     list_all_containers) return ;;
     list_stopped_containers) return ;;
-    list_all_images) return ;;
+    list_tagged_images) return ;;
     list_all_repositories) return ;;
     remove_all_images_from_repo)
       local options="$(dhelper list_all_repositories)"
@@ -44,7 +44,7 @@ _dhelper_parser_options()
       ;;
     remove_images)
       # Specjalne traktowanie, by poprawnie obsłużyć uzupełnianie nazw zawierających ':'
-      local options="--all $(dhelper list_all_images)"
+      local options="--all $(dhelper list_tagged_images)"
       _get_comp_words_by_ref -n : cur
       COMPREPLY=( $(compgen -W "${options}" -- $cur ) );
       __ltrim_colon_completions "${cur}"
