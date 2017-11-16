@@ -25,17 +25,18 @@
 help(){
 cat <<EOF
 
-  usage: $0 command [OPTIONS]
+  usage: ${0##*/} command [OPTIONS]
 
-  $0 start_containers   {--all-stopped | NAME(s)}  - start stopped containers
-  $0 stop_containers    {--all-running | NAME(s)}  - stop running containers
-  $0 kill_containers    {--all-running | NAME(s)}  - kill running cintainers
-  $0 list_running_containers                   - list running containers
-  $0 list_all_containers                       - list all containers
-  $0 list_stopped_containers               - list non running containers
-  $0 list_all_images                           - list all images
-  $0 remove_containers {--all|--stopped|--running|NAME(s)} - remove containers
-  $0 remove_images {--all|NAME(s)}             - remove images
+  ${0##*/} start_containers {--all-stopped | NAME(s)}  - start stopped containers
+  ${0##*/} stop_containers  {--all-running | NAME(s)}  - stop running containers
+  ${0##*/} kill_containers  {--all-running | NAME(s)}  - kill running cintainers
+  ${0##*/} list_running_containers                     - list running containers
+  ${0##*/} list_all_containers                         - list all containers
+  ${0##*/} list_stopped_containers                     - list non running containers
+  ${0##*/} list_tagged_images                          - list tagged images
+  ${0##*/} list_all_images                             - list all images
+  ${0##*/} remove_containers {--all|--stopped|--running|NAME(s)} - remove containers
+  ${0##*/} remove_images     {--all|NAME(s)}           - remove images
 
 EOF
 exit 1
@@ -51,7 +52,7 @@ _normalize_and_verify_image_name_(){
   REPO=$(echo ${NAME} | cut -d: -f1)
   TAG=$(echo ${NAME} | cut -d: -f2)
   [[ ${NAME} == ${REPO} ]] && NAME=${NAME}:latest
-  list_all_images | grep -q "^${NAME}$" || return 0
+  list_tagged_images | grep -q "^${NAME}$" || return 0
   echo ${NAME}
 }
 
@@ -106,7 +107,7 @@ is_running(){
 remove_images(){
   local LIST IMAGE CONTAINER
   if (( $# == 0 )); then
-    LIST=$(list_all_images)
+    LIST=$(list_tagged_images)
   else
     LIST="$@"
   fi
@@ -156,8 +157,36 @@ list_containers_created_from_image(){
   docker inspect --format='{{.Name}}' ${LIST} | sed 's#^/##'
 }
 
-list_all_images(){
+list_tagged_images(){
   docker images --format='{{.Repository}}:{{.Tag}}' | sort
+}
+
+list_all_images(){
+  local -A IMAGES
+  local IMAGE PARENT CHILD
+  for IMAGE in $(docker images --all --quiet --no-trunc | sort -u)
+  do
+    IMAGES["${IMAGE}"]=$(docker inspect --type image --format='{{.Parent}}' ${IMAGE})
+    # echo ${IMAGE}' ---> '${IMAGES["${IMAGE}"]}
+  done
+  for IMAGE in ${!IMAGES[@]}
+  do
+    [[ -n ${IMAGES["${IMAGE}"]} ]] && continue
+    echo '+' ${IMAGE}
+    PARENT=${IMAGE}
+    while :
+    do
+      for CHILD in ${!IMAGES[@]}
+      do
+        if [[ ${IMAGES["${CHILD}"]} == ${PARENT} ]]; then
+          echo '--' ${CHILD}
+          PARENT=${CHILD}
+          continue 2
+        fi
+      done
+      break
+    done
+  done
 }
 
 list_all_repositories(){
@@ -249,6 +278,9 @@ case "${COMMAND}" in
     ;;
   list_stopped_containers	)
     (( $# > 0 )) && help || list_stopped_containers
+    ;;
+  list_tagged_images	)
+    (( $# > 0 )) && help || list_tagged_images
     ;;
   list_all_images	)
     (( $# > 0 )) && help || list_all_images
